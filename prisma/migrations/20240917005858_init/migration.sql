@@ -12,7 +12,7 @@ CREATE TABLE "Usuario" (
 -- CreateTable
 CREATE TABLE "ImagemSatelite" (
     "id" SERIAL NOT NULL,
-    "usuario_id" INTEGER NOT NULL,
+    "usuario_id" INTEGER,
     "longitude" DOUBLE PRECISION NOT NULL,
     "latitude" DOUBLE PRECISION NOT NULL,
     "data_imagem" TIMESTAMP(3) NOT NULL,
@@ -29,4 +29,4 @@ CREATE UNIQUE INDEX "Usuario_email_key" ON "Usuario"("email");
 CREATE INDEX "ImagemSatelite_usuario_id_idx" ON "ImagemSatelite"("usuario_id");
 
 -- AddForeignKey
-ALTER TABLE "ImagemSatelite" ADD CONSTRAINT "ImagemSatelite_usuario_id_fkey" FOREIGN KEY ("usuario_id") REFERENCES "Usuario"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "ImagemSatelite" ADD CONSTRAINT "ImagemSatelite_usuario_id_fkey" FOREIGN KEY ("usuario_id") REFERENCES "Usuario"("id") ON DELETE SET NULL ON UPDATE CASCADE;

@@ -18,14 +18,14 @@ model Usuario {
 
 model ImagemSatelite {
   id            Int       @id @default(autoincrement())
-  usuario_id    Int
+  usuario_id    Int?
   longitude     Float
   latitude      Float
   data_imagem   DateTime  
   data_download DateTime  @default(now())
   status        String
 
-  usuario       Usuario   @relation(fields: [usuario_id], references: [id])
+  usuario       Usuario?   @relation(fields: [usuario_id], references: [id])
 
   @@index([usuario_id])
 }
