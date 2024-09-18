@@ -15,8 +15,12 @@ RUN npm install
 # Copie o restante dos arquivos da aplicação
 COPY . .
 
+# Adicione o script para criar o .env
+COPY create-env.sh ./create-env.sh
+RUN chmod +x create-env.sh
+
 # Exponha a porta que o app vai rodar (caso necessário)
 EXPOSE 3002
 
 # Comando para rodar a aplicação
-CMD ["npm", "start"]
+CMD ["bash", "create-env.sh"]
