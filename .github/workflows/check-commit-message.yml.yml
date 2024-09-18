@@ -1,0 +1,31 @@
+# .github/workflows/check-commit-message.yml
+name: Verificar Commit
+
+on:
+  push:
+    branches:
+      - CDS-85-desenvolver-a-pipeline-no-actions-para-validacao-da-task-no-backend
+  pull_request:
+    branches:
+      - develop
+
+jobs:
+  commit-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Verificar mensagens de commit
+      run: |
+        git log -1 --pretty=%B | grep -E '^cds-[0-9]+ (feat|fix|chore|docs|style|refactor|perf|test): .+' || exit 1
+      continue-on-error: false
+
+    - name: Sucesso
+      if: success()
+      run: echo "Mensagem de commit está conforme o padrão."
+
+    - name: Falha
+      if: failure()
+      run: echo "Mensagem de commit NÃO está conforme o padrão." && exit 1

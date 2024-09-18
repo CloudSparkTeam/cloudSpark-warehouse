@@ -1,0 +1,67 @@
+# .github/workflows/ci-pipeline.yml
+name: CI Pipeline
+
+on:
+  workflow_run:
+    workflows: ["Verificar Commit"]
+    types:
+      - completed
+
+jobs:
+  check-completion:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+    - name: Check Completion
+      id: check
+      run: echo "::set-output name=run::true"
+
+  build:
+    runs-on: ubuntu-latest
+    needs: check-completion
+
+    services:
+      postgres:
+        image: postgres:latest
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: cloudSpark
+          POSTGRES_DB: cloudspark
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '16'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Set up environment variables
+      run: echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" > .env
+
+    - name: Run Prisma migrations
+      run: npx prisma migrate dev --name init
+
+    - name: Generate Prisma Client
+      run: npx prisma generate
+
+    - name: Start the server
+      run: npm start &
+
+    - name: Wait for server
+      run: sleep 15
+
+    - name: Check if the server is running
+      run: curl http://localhost:3002
