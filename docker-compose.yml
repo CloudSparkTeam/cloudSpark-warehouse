@@ -18,7 +18,7 @@ services:
 
   app:
     build: .
-    command: bash -c "./create-env.sh"
+    command: bash -c "./create-env.sh && npx prisma migrate dev --name init && npx prisma generate && npm start"
     environment:
       DATABASE_URL: "postgresql://postgres:cloudSpark@postgres:5432/cloudspark?schema=public"
     depends_on:
