@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { UsuarioService } from '../services/UsuarioServices';
+import { sha512 } from "sha512-crypt-ts";
 
 const usuarioService = new UsuarioService();
 
@@ -40,7 +41,7 @@ export class UsuarioController {
   
     const dadosAtualizados: Partial<{ nome: string; senha: string }> = {};
     if (nome) dadosAtualizados.nome = nome;
-    if (senha) dadosAtualizados.senha = senha;
+    if (senha) dadosAtualizados.senha = sha512.crypt(senha, "password");
   
     try {
       const usuario = await usuarioService.atualizarUsuario(Number(id), dadosAtualizados);
