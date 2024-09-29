@@ -1,0 +1,35 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "windows", "debian-openssl-1.1.x"]  // Inclua debian-openssl-1.1.x
+}
+
+model Usuario {
+  id           Int            @id @default(autoincrement())
+  nome         String
+  email        String         @unique
+  senha        String
+  data_criacao DateTime        @default(now())
+}
+
+model ImagemSatelite {
+  id                 Int       @id @default(autoincrement())
+  data_imagem       DateTime @default(now())
+  coordenada_norte   Float
+  coordenada_sul     Float
+  coordenada_leste   Float
+  coordenada_oeste   Float
+  startDate         DateTime? 
+  endDate           DateTime? 
+  cloudPercentage    Float? 
+  shadowPercentage   Float?
+  status             String
+  usuario_id        Int?      // use Int? se for opcional
+  data_download      DateTime? // Novo campo para armazenar a data de download
+
+  @@index([usuario_id])
+}
