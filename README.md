@@ -99,7 +99,26 @@ Siga os passos abaixo para rodar o backend localmente:
     npx prisma generate
     ```
 
-7. **Inicie o servidor:**
+7. **Python:**
+
+    Você pode optar por criar um ambiente virtual ou não:
+
+    Para configurar o ambiente virtual:
+    ```cmd
+    python -m venv venv
+    ```
+
+    Inicie:
+    ```cmd
+    venv/Scripts/activate
+    ```
+
+    Instale as dependencias do python, com ou sem ambiente virtual:
+    ```cmd
+    pip install -r requirements.txt
+    ```  
+
+8. **Inicie o servidor:**
 
     Finalmente, execute o comando para iniciar o servidor:
 

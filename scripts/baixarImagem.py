@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import requests
 from PIL import Image  # Importando a biblioteca Pillow
 
-
 Image.MAX_IMAGE_PIXELS = None  # Remove o limite de pixels
 
 # Substitua pelo seu email cadastrado na API
@@ -72,8 +71,14 @@ except Exception as e:
     print(f"Erro ao baixar produtos: {e}")
     sys.exit(1)
 
+def adjust_gamma(image, gamma=1.0):
+    """Aplica correção de gamma à imagem."""
+    invGamma = 1.0 / gamma
+    table = np.array([((i / 255.0) ** invGamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
+    return cv2.LUT(image, table)
+
 # Função para aplicar histogram stretching
-def stretch_image(image, lower_percent=2, upper_percent=98):
+def stretch_image(image, lower_percent=1, upper_percent=99):
     """Aplica stretching no histograma para melhorar o contraste."""
     out = np.zeros_like(image, dtype=np.float32)
     for i in range(image.shape[-1]):
@@ -85,20 +90,32 @@ def stretch_image(image, lower_percent=2, upper_percent=98):
 
 # Função para enviar a imagem para o endpoint e salvar a resposta
 def enviar_para_ia_e_salvar(output_png_path, ia_output_dir):
-    files = {'file': open(output_png_path, 'rb')}
-    try:
-        response = requests.post('http://50.17.138.118:8000/predict', files=files)
-        response.raise_for_status()
+    with open(output_png_path, 'rb') as f:
+        # Criando o payload de arquivo
+        file_name = os.path.basename(output_png_path)  # Pegando o nome do arquivo
+        files = {'files': (file_name, f, 'image/png')}  # Alterando 'file' para 'files'
+        headers = {
+            'accept': 'application/json'
+        }
 
-        # Salvar a imagem retornada
-        treated_image_path = os.path.join(ia_output_dir, f'imagem_tratada_ia_{os.path.basename(output_png_path)}')
-        with open(treated_image_path, 'wb') as f:
-            f.write(response.content)
-        
-        print(f"Imagem tratada salva como {treated_image_path}")
-    
-    except requests.exceptions.RequestException as e:
-        print(f"Erro ao enviar ou receber a imagem tratada: {e}")
+        try:
+            # Fazendo a requisição para o endpoint
+            response = requests.post('http://50.17.138.118:8000/predict', files=files, headers=headers)
+            response.raise_for_status()
+
+            # Salvando a imagem retornada
+            treated_image_path = os.path.join(ia_output_dir, f'imagem_tratada_ia_{file_name}')
+            with open(treated_image_path, 'wb') as f_out:
+                f_out.write(response.content)
+
+            print(f"Imagem tratada salva como {treated_image_path}")
+
+        except requests.exceptions.RequestException as e:
+            if e.response is not None:
+                print(f"Erro ao enviar ou receber a imagem tratada: {e}")
+                print(f"Resposta do servidor: {e.response.text}")
+            else:
+                print(f"Erro de conexão: {e}")
 
 # Verificando o conteúdo do diretório de download para encontrar as subpastas
 for subdir in os.listdir(outdir):
@@ -148,10 +165,11 @@ for subdir in os.listdir(outdir):
 
         print(f"Imagem empilhada salva como {output_png_path}")
 
-        # Redimensionando a imagem
+        # Redimensionando e convertendo a imagem para PNG
         with Image.open(output_png_path) as img:
             img = img.resize((800, 600), Image.ANTIALIAS)  # Ajuste o tamanho conforme necessário
-            img.save(output_png_path)
+            img = img.convert("RGB")  # Garantindo que a imagem esteja no formato RGB
+            img.save(output_png_path, format='PNG')  # Salvando no formato PNG
 
         # Enviar a imagem para o endpoint e salvar a resposta
         enviar_para_ia_e_salvar(output_png_path, ia_output_dir)

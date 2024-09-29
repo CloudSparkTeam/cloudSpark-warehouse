@@ -134,7 +134,7 @@ export class ImagemSateliteController {
   }
 
   async listarImagensTratadas(req: Request, res: Response) {
-    const imagensDir = path.join(__dirname, '../../imagens_tratadas'); // Ajuste o caminho conforme necessário
+    const imagensDir = path.join(__dirname, '../../imagens_tratadas_ia'); // Ajuste o caminho conforme necessário
 
     fs.readdir(imagensDir, (err, files) => {
         if (err) {
@@ -145,7 +145,7 @@ export class ImagemSateliteController {
             .filter(file => file.endsWith('.png')) // Filtra apenas arquivos .png
             .map(file => ({
                 name: file,
-                url: `http://localhost:3002/imagens_tratadas/${file}`,
+                url: `http://localhost:3002/imagens_tratadas_ia/${file}`,
                 // url: `http://localhost:3002/imagemSatelite/imagens_tratadas/${file}`,
             }));
 

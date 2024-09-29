@@ -14,7 +14,7 @@ app.use(express.json());
 app.use(router);
 
 // app.use('/imagens_tratadas', express.static(path.join(__dirname, '../../imagens_tratadas')));
-app.use('/imagens_tratadas', express.static(path.join(process.cwd(), 'imagens_tratadas')));
+app.use('/imagens_tratadas_ia', express.static(path.join(process.cwd(), 'imagens_tratadas_ia')));
 
 
 app.get('/', async (req, res) => {
