@@ -14,19 +14,22 @@ model Usuario {
   email        String         @unique
   senha        String
   data_criacao DateTime        @default(now())
-  imagens      ImagemSatelite[]
 }
 
 model ImagemSatelite {
-  id            Int       @id @default(autoincrement())
-  usuario_id    Int?
-  longitude     Float
-  latitude      Float
-  data_imagem   DateTime  
-  data_download DateTime  @default(now())
-  status        String
-
-  usuario       Usuario?   @relation(fields: [usuario_id], references: [id])
+  id                 Int       @id @default(autoincrement())
+  data_imagem       DateTime @default(now())
+  coordenada_norte   Float
+  coordenada_sul     Float
+  coordenada_leste   Float
+  coordenada_oeste   Float
+  startDate         DateTime? 
+  endDate           DateTime? 
+  cloudPercentage    Float? 
+  shadowPercentage   Float?
+  status             String
+  usuario_id        Int?      // use Int? se for opcional
+  data_download      DateTime? // Novo campo para armazenar a data de download
 
   @@index([usuario_id])
 }

@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
 import router from './routes';
+import path from 'path';
 
 const app = express();
 const port = 3002;
@@ -11,6 +12,10 @@ const prisma = new PrismaClient();
 app.use(cors());
 app.use(express.json());
 app.use(router);
+
+// app.use('/imagens_tratadas', express.static(path.join(__dirname, '../../imagens_tratadas')));
+app.use('/imagens_tratadas_ia', express.static(path.join(process.cwd(), 'imagens_tratadas_ia')));
+
 
 app.get('/', async (req, res) => {
   try {
