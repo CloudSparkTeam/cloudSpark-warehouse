@@ -3,21 +3,16 @@
 
 Este serviço é responsável por operações de backend, armazenamento de imagens, acesso a elas, etc.
 
-**Primeiramente, certifique-se de ter o Node.js e o npm instalados no seu ambiente de desenvolvimento.**
-
-Se ainda não tiver, acesse [Node.js](https://nodejs.org/pt) e faça o download da versão mais recente.
-
-## Como Rodar
-
-Siga os passos abaixo para rodar o backend localmente:
-
-1. **Clone o repositório:**
-
-    Clone o projeto utilizando o comando:
+1. **Clone o projeto utilizando o comando:**
 
     ```bash
     git clone https://github.com/CloudSparkTeam/cloudSpark-warehouse.git
     ```
+    Clone o projeto utilizando o comando:
+
+   ```bash
+   git clone https://github.com/CloudSparkTeam/cloudSpark-warehouse.git
+   ```
 
 2. **Navegue até a pasta do projeto:**
 
@@ -131,3 +126,4 @@ Siga os passos abaixo para rodar o backend localmente:
     ```cmd
     Servidor está rodando em http://localhost:3002
     ```
+
