@@ -1,30 +1,76 @@
 import { Request, Response } from 'express';
 import { ImagemSateliteService } from '../services/ImagemSateliteServices';
+import { exec } from 'child_process';
+import path from 'path';
+import fs from 'fs';
 
 const imagemSateliteService = new ImagemSateliteService();
 
 export class ImagemSateliteController {
   async criarImagemSatelite(req: Request, res: Response) {
-    const { longitude, latitude, data_imagem, status, usuario_id } = req.body;
-    
-    if (longitude === undefined || latitude === undefined || data_imagem === undefined || status === undefined) {
-      return res.status(400).json({ error: 'Longitude, latitude, data_imagem e status são obrigatórios' });
+    const { coordenada_norte, coordenada_sul, coordenada_leste, coordenada_oeste, data_imagem, status, startDate, endDate, shadowPercentage, cloudPercentage, usuario_id } = req.body;
+
+    if (
+        coordenada_norte === undefined ||
+        coordenada_sul === undefined ||
+        coordenada_leste === undefined ||
+        coordenada_oeste === undefined ||
+        data_imagem === undefined ||
+        status === undefined ||
+        startDate === undefined ||
+        endDate === undefined ||
+        shadowPercentage === undefined ||
+        cloudPercentage === undefined
+    ) {
+        return res.status(400).json({ error: 'Coordenadas (norte, sul, leste, oeste), data_imagem e status são obrigatórios' });
     }
 
     try {
-      const dataImagem = new Date(data_imagem);
-      const imagemSatelite = await imagemSateliteService.criarImagemSatelite(
-        longitude,
-        latitude,
-        dataImagem,
-        status,
-        usuario_id
-      );
-      res.status(201).json(imagemSatelite);
+        const dataImagem = new Date(data_imagem);
+        const imagemSatelite = await imagemSateliteService.criarImagemSatelite(
+            coordenada_norte,
+            coordenada_sul,
+            coordenada_leste,
+            coordenada_oeste,
+            dataImagem,
+            status,
+            startDate,
+            endDate,
+            shadowPercentage,
+            cloudPercentage,
+            usuario_id
+        );
+
+        // Executar o script Python após criar a imagem de satélite
+       // Formatar datas
+       const startDateFormatted = startDate.split('T')[0]; // Remove a parte da hora
+       const endDateFormatted = endDate.split('T')[0]; // Remove a parte da hora
+
+       // Caminhos do Python e do script
+       const pythonExecutable = path.join(__dirname, '../../scripts/venv/Scripts/python.exe');
+       const scriptPath = path.join(__dirname, '../../scripts/baixarImagem.py');
+
+       // Comando atualizado
+       const command = `${pythonExecutable} ${scriptPath} ${coordenada_oeste} ${coordenada_sul} ${coordenada_leste} ${coordenada_norte} ${startDateFormatted} ${endDateFormatted}`;
+
+
+        exec(command, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`Erro ao executar o script: ${error}`);
+                return res.status(500).json({ error: 'Erro ao buscar imagens' });
+            }
+            console.log(stdout);
+            // Enviar a resposta ao cliente aqui, após a execução do script Python
+            
+            res.status(201).json(imagemSatelite);
+        });
     } catch (error) {
-      res.status(400).json({ error: 'Erro ao criar a imagem de satélite' });
+        console.error(error); // Log do erro para depuração
+        res.status(400).json({ error: 'Erro ao criar a imagem de satélite', details: error });
     }
-  }
+}
+
+
 
   async listarImagensSatelite(req: Request, res: Response) {
     try {
@@ -86,6 +132,27 @@ export class ImagemSateliteController {
       res.status(400).json({ error: 'Erro ao excluir a imagem de satélite' });
     }
   }
+
+  async listarImagensTratadas(req: Request, res: Response) {
+    const imagensDir = path.join(__dirname, '../../imagens_tratadas'); // Ajuste o caminho conforme necessário
+
+    fs.readdir(imagensDir, (err, files) => {
+        if (err) {
+            return res.status(500).json({ error: 'Erro ao listar as imagens' });
+        }
+
+        const imagensTratadas = files
+            .filter(file => file.endsWith('.png')) // Filtra apenas arquivos .png
+            .map(file => ({
+                name: file,
+                url: `http://localhost:3002/imagens_tratadas/${file}`,
+                // url: `http://localhost:3002/imagemSatelite/imagens_tratadas/${file}`,
+            }));
+
+        res.status(200).json(imagensTratadas);
+    });
+  }
+
 }
 
 export default new ImagemSateliteController();
