@@ -3,7 +3,7 @@ import { UsuarioController } from "../controllers";
 import { auth } from "../auth";
 
 const routes = Router();
-
+ 
 routes.post('/criar', auth, UsuarioController.criarUsuario);
 routes.get('/listar', auth, UsuarioController.listarUsuarios);
 routes.get('/listar/:id', auth, UsuarioController.obterUsuarioPorId);
