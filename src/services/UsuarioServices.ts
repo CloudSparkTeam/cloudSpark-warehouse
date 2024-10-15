@@ -30,6 +30,13 @@ export class UsuarioService {
     });
   }
 
+  async obterLogin(email: string, senha: string)
+  {
+    return await prisma.usuario.findUnique({
+      where: { email: email, senha: senha}
+    });
+  }
+
   async atualizarUsuario(id: number, data: Partial<{ nome: string; senha: string }>) {
     return await prisma.usuario.update({
       where: { id },
