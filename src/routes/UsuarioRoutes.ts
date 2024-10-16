@@ -4,7 +4,7 @@ import { auth } from "../auth";
 
 const routes = Router();
 
-routes.post('/criar', auth, UsuarioController.criarUsuario);
+routes.post('/criar', UsuarioController.criarUsuario);
 routes.get('/listar', auth, UsuarioController.listarUsuarios);
 routes.get('/listar/:id', auth, UsuarioController.obterUsuarioPorId);
 routes.put('/atualizar/:id', auth, UsuarioController.atualizarUsuario);

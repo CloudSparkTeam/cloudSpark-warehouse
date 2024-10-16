@@ -4,7 +4,7 @@ import { auth } from "../auth";
 
 const routes = Router();
 
-routes.post('/criar', auth, ImagemSateliteController.criarImagemSatelite);
+routes.post('/criar', ImagemSateliteController.criarImagemSatelite);
 routes.get('/listar', ImagemSateliteController.listarImagensSatelite);
 routes.get('/listar/:id', ImagemSateliteController.obterImagemSatelitePorId);
 routes.put('/atualizar/:id', auth, ImagemSateliteController.atualizarImagemSatelite);

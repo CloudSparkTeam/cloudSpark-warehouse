@@ -27,6 +27,8 @@ export class ImagemSateliteController {
 
     try {
         const dataImagem = new Date(data_imagem);
+        const startDateObj = new Date(startDate);  // Convertendo startDate para objeto Date
+        const endDateObj = new Date(endDate); 
         const imagemSatelite = await imagemSateliteService.criarImagemSatelite(
             coordenada_norte,
             coordenada_sul,
@@ -34,43 +36,47 @@ export class ImagemSateliteController {
             coordenada_oeste,
             dataImagem,
             status,
-            startDate,
-            endDate,
+            startDateObj,
+            endDateObj,
             shadowPercentage,
             cloudPercentage,
             usuario_id
         );
 
         // Executar o script Python após criar a imagem de satélite
-       // Formatar datas
-       const startDateFormatted = startDate.split('T')[0]; // Remove a parte da hora
-       const endDateFormatted = endDate.split('T')[0]; // Remove a parte da hora
+        console.log('Imagem de satélite criada com sucesso.');
+        console.log('Preparando para executar o script Python...');
 
-       // Caminhos do Python e do script
-       const pythonExecutable = path.join(__dirname, '../../scripts/venv/Scripts/python.exe');
-       const scriptPath = path.join(__dirname, '../../scripts/baixarImagem.py');
+        // Formatar datas
+        const startDateFormatted = startDate.split('T')[0]; // Remove a parte da hora
+        const endDateFormatted = endDate.split('T')[0]; // Remove a parte da hora
 
-       // Comando atualizado
-       const command = `${pythonExecutable} ${scriptPath} ${coordenada_oeste} ${coordenada_sul} ${coordenada_leste} ${coordenada_norte} ${startDateFormatted} ${endDateFormatted}`;
+        // Caminhos do Python e do script
+        const pythonExecutable = path.join(__dirname, '../../scripts/venv/Scripts/python.exe');
+        const scriptPath = path.join(__dirname, '../../scripts/novaApi.py');
 
+        // Comando atualizado
+        const command = `${pythonExecutable} ${scriptPath} ${coordenada_oeste} ${coordenada_sul} ${coordenada_leste} ${coordenada_norte} ${startDateFormatted} ${endDateFormatted}`;
+
+        console.log(`Comando para execução: ${command}`);
 
         exec(command, (error, stdout, stderr) => {
             if (error) {
-                console.error(`Erro ao executar o script: ${error}`);
+                console.error(`Erro ao executar o script Python: ${error.message}`);
+                console.error(`Detalhes do erro: ${stderr}`);
                 return res.status(500).json({ error: 'Erro ao buscar imagens' });
             }
-            console.log(stdout);
-            // Enviar a resposta ao cliente aqui, após a execução do script Python
+            console.log('Script Python executado com sucesso.');
+            console.log(`Saída do script: ${stdout}`);
             
+            // Enviar a resposta ao cliente aqui, após a execução do script Python
             res.status(201).json(imagemSatelite);
         });
     } catch (error) {
-        console.error(error); // Log do erro para depuração
+        console.error('Erro durante a criação da imagem de satélite:', error);
         res.status(400).json({ error: 'Erro ao criar a imagem de satélite', details: error });
     }
-}
-
-
+  }
 
   async listarImagensSatelite(req: Request, res: Response) {
     try {
