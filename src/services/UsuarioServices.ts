@@ -62,7 +62,7 @@ export class UsuarioService {
     });
   }
 
-  async atualizarUsuario(id: number, data: Partial<{ nome: string; senha: string }>) {
+  async atualizarUsuario(id: number, data: Partial<{ nome: string; senha: string; email: string }>) {
     return await prisma.usuario.update({
       where: { id },
       data,
