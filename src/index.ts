@@ -28,6 +28,7 @@ async function initializeDatabase() {
           nome: "admin",
           email: "admin@gmail.com",
           senha: sha512.crypt("123", "password"),
+          data_nascimento: "10-02-1997",
         }
       });
       console.log("Usuário admin criado com sucesso.");
@@ -39,6 +40,7 @@ async function initializeDatabase() {
           nome: "user",
           email: "user@gmail.com",
           senha: sha512.crypt("123", "password"),
+          data_nascimento: "10-02-1997",
         }
       });
       console.log("Usuário user criado com sucesso.");

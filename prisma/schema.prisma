@@ -13,6 +13,7 @@ model Usuario {
   nome         String
   email        String         @unique
   senha        String
+  data_nascimento String
   data_criacao DateTime        @default(now())
 }
 

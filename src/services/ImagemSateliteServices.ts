@@ -31,7 +31,7 @@ export class ImagemSateliteService {
     };
 
     return await prisma.imagemSatelite.create({
-        data,
+        data: data
     });
 }
 
