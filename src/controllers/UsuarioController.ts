@@ -37,11 +37,12 @@ export class UsuarioController {
 
   async atualizarUsuario(req: Request, res: Response) {
     const { id } = req.params;
-    const { nome, senha } = req.body;
+    const { nome, senha, email } = req.body;
   
-    const dadosAtualizados: Partial<{ nome: string; senha: string }> = {};
+    const dadosAtualizados: Partial<{ nome: string; senha: string, email: string }> = {};
     if (nome) dadosAtualizados.nome = nome;
     if (senha) dadosAtualizados.senha = sha512.crypt(senha, "password");
+    if (email) dadosAtualizados.email = email;
   
     try {
       const usuario = await usuarioService.atualizarUsuario(Number(id), dadosAtualizados);
