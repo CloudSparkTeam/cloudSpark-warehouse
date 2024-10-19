@@ -9,5 +9,4 @@ router.post("/login", Login.Login);
 router.use("/usuario", UsuarioRoutes);
 router.use("/imagemSatelite", ImagemSateliteRoutes);
 
-router.use((_: Request, res: Response) => res.json({ error: "Requisição desconhecida" }));
 export default router;

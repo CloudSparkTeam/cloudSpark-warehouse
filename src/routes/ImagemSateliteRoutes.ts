@@ -9,6 +9,7 @@ routes.get('/listar', ImagemSateliteController.listarImagensSatelite);
 routes.get('/listar/:id', ImagemSateliteController.obterImagemSatelitePorId);
 routes.put('/atualizar/:id', auth, ImagemSateliteController.atualizarImagemSatelite);
 routes.delete('/deletar/:id', auth, ImagemSateliteController.excluirImagemSatelite);
+routes.get('/imagens-tratadas', ImagemSateliteController.listarImagensTratadas);
 
 routes.use((_: Request, res: Response) => res.json({ error: "Requisição desconhecida" }));
 export default routes;
