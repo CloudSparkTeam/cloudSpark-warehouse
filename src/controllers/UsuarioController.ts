@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { UsuarioService } from '../services/UsuarioServices';
 import { sha512 } from "sha512-crypt-ts";
+import { generateToken } from '../middlewares';
 
 const usuarioService = new UsuarioService();
 
@@ -46,9 +47,26 @@ export class UsuarioController {
   
     try {
       const usuario = await usuarioService.atualizarUsuario(Number(id), dadosAtualizados);
-      res.status(200).json(usuario);
+      const { email, senha } = req.body;
+      var senhacript = sha512.crypt(senha, "password");
+      const user = await usuarioService.obterLogin(email, senhacript);
+      if (user) {
+          const token = await generateToken(user);
+          return res.status(200).json({ token });
+      }
+      return res.json({ error: "Usuário não localizado" });
     } catch (error) {
       res.status(400).json({ error: 'Erro ao atualizar usuário' });
+    }
+  }
+
+  async obterUsuarioLogado(req: Request, res: Response) {
+    try {
+      // Os dados do usuário estão no res.locals após a validação do token
+      const usuarioLogado = res.locals;
+      res.status(200).json(usuarioLogado);
+    } catch (error) {
+      res.status(400).json({ error: 'Erro ao obter o usuário logado' });
     }
   }
 
