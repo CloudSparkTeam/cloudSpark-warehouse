@@ -2,3 +2,7 @@
 node_modules/
 scripts/venv/
 .env
+
+imagens_tratadas/
+
+imagens_tratadas_ia/

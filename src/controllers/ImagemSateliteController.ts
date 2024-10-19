@@ -147,12 +147,17 @@ export class ImagemSateliteController {
             return res.status(500).json({ error: 'Erro ao listar as imagens' });
         }
 
+        // Verifica o host da requisição para diferenciar mobile e web
+        const host = req.headers.host;
+        const baseURL = host?.includes('10.0.2.2') 
+            ? 'http://10.0.2.2:3002/imagens_tratadas_ia/' 
+            : 'http://localhost:3002/imagens_tratadas_ia/'; 
+
         const imagensTratadas = files
             .filter(file => file.endsWith('.png')) // Filtra apenas arquivos .png
             .map(file => ({
                 name: file,
-                url: `http://localhost:3002/imagens_tratadas_ia/${file}`,
-                // url: `http://localhost:3002/imagemSatelite/imagens_tratadas/${file}`,
+                url: `${baseURL}${file}`,  // Usa a baseURL apropriada
             }));
 
         res.status(200).json(imagensTratadas);
