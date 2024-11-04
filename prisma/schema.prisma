@@ -19,7 +19,7 @@ model Usuario {
 
 model ImagemSatelite {
   id                 Int       @id @default(autoincrement())
-  nome               String
+  nome               String?
   data_imagem       DateTime @default(now())
   coordenada_norte   Float
   coordenada_sul     Float
