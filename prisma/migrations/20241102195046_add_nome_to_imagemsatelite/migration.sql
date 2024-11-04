@@ -5,4 +5,4 @@
 
 */
 -- AlterTable
-ALTER TABLE "ImagemSatelite" ADD COLUMN     "nome" TEXT NOT NULL;
+ALTER TABLE "ImagemSatelite" ADD COLUMN     "nome" TEXT;
