@@ -3,12 +3,27 @@ import { ImagemSateliteService } from '../services/ImagemSateliteServices';
 import { exec } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 const imagemSateliteService = new ImagemSateliteService();
 
 export class ImagemSateliteController {
   async criarImagemSatelite(req: Request, res: Response) {
-    const { coordenada_norte, coordenada_sul, coordenada_leste, coordenada_oeste, data_imagem, status, startDate, endDate, shadowPercentage, cloudPercentage, usuario_id } = req.body;
+    const { 
+        coordenada_norte, 
+        coordenada_sul, 
+        coordenada_leste, 
+        coordenada_oeste, 
+        data_imagem, 
+        status, 
+        startDate, 
+        endDate, 
+        shadowPercentage, 
+        cloudPercentage, 
+        usuario_id 
+    } = req.body;
 
     if (
         coordenada_norte === undefined ||
@@ -27,38 +42,35 @@ export class ImagemSateliteController {
 
     try {
         const dataImagem = new Date(data_imagem);
-        const startDateObj = new Date(startDate);  // Convertendo startDate para objeto Date
-        const endDateObj = new Date(endDate); 
-        const imagemSatelite = await imagemSateliteService.criarImagemSatelite(
-            coordenada_norte,
-            coordenada_sul,
-            coordenada_leste,
-            coordenada_oeste,
-            dataImagem,
-            status,
-            startDateObj,
-            endDateObj,
-            shadowPercentage,
-            cloudPercentage,
-            usuario_id
-        );
+        const startDateObj = new Date(startDate);
+        const endDateObj = new Date(endDate);
 
-        // Executar o script Python após criar a imagem de satélite
-        console.log('Imagem de satélite criada com sucesso.');
-        console.log('Preparando para executar o script Python...');
+        // Salvar apenas as coordenadas e outras informações inicialmente
+        const imagemSatelite = await prisma.imagemSatelite.create({
+            data: {
+                coordenada_norte,
+                coordenada_sul,
+                coordenada_leste,
+                coordenada_oeste,
+                data_imagem: dataImagem,
+                status,
+                startDate: startDateObj,
+                endDate: endDateObj,
+                shadowPercentage,
+                cloudPercentage,
+                ...(usuario_id !== undefined && { usuario_id }),
+            }
+        });
 
-        // Formatar datas
-        const startDateFormatted = startDate.split('T')[0]; // Remove a parte da hora
-        const endDateFormatted = endDate.split('T')[0]; // Remove a parte da hora
+        console.log('Imagem de satélite criada com sucesso. Preparando para executar o script Python...');
 
-        // Caminhos do Python e do script
+        const startDateFormatted = startDate.split('T')[0];
+        const endDateFormatted = endDate.split('T')[0];
+
         const pythonExecutable = path.join(__dirname, '../../scripts/venv/Scripts/python.exe');
         const scriptPath = path.join(__dirname, '../../scripts/novaApi.py');
 
-        // Comando atualizado
         const command = `${pythonExecutable} ${scriptPath} ${coordenada_oeste} ${coordenada_sul} ${coordenada_leste} ${coordenada_norte} ${startDateFormatted} ${endDateFormatted}`;
-
-        console.log(`Comando para execução: ${command}`);
 
         exec(command, (error, stdout, stderr) => {
             if (error) {
@@ -67,16 +79,33 @@ export class ImagemSateliteController {
                 return res.status(500).json({ error: 'Erro ao buscar imagens' });
             }
             console.log('Script Python executado com sucesso.');
-            console.log(`Saída do script: ${stdout}`);
-            
-            // Enviar a resposta ao cliente aqui, após a execução do script Python
-            res.status(201).json(imagemSatelite);
+
+            // Captura a saída e processa os nomes dos arquivos
+            const nomesArquivos = stdout.trim().split('\n');  // Assume que cada nome de arquivo está em uma nova linha
+            console.log(`Nomes de arquivos gerados: ${nomesArquivos}`);
+
+            // Salvar os nomes no banco de dados
+            const promises = nomesArquivos.map(async (nome) => {
+                return prisma.imagemSatelite.updateMany({
+                    where: { id: imagemSatelite.id },  // Aqui, você pode ajustar a lógica conforme necessário
+                    data: { nome }
+                });
+            });
+
+            Promise.all(promises)
+                .then(() => {
+                    res.status(201).json({ ...imagemSatelite, nomes: nomesArquivos });
+                })
+                .catch((dbError) => {
+                    console.error('Erro ao atualizar os nomes das imagens:', dbError);
+                    res.status(500).json({ error: 'Erro ao salvar nomes das imagens' });
+                });
         });
     } catch (error) {
         console.error('Erro durante a criação da imagem de satélite:', error);
         res.status(400).json({ error: 'Erro ao criar a imagem de satélite', details: error });
     }
-  }
+}
 
   async listarImagensSatelite(req: Request, res: Response) {
     try {
