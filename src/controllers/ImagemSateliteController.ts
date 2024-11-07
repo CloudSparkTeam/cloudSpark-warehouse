@@ -3,12 +3,27 @@ import { ImagemSateliteService } from '../services/ImagemSateliteServices';
 import { exec } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 const imagemSateliteService = new ImagemSateliteService();
 
 export class ImagemSateliteController {
-  async criarImagemSatelite(req: Request, res: Response) {
-    const { coordenada_norte, coordenada_sul, coordenada_leste, coordenada_oeste, data_imagem, status, startDate, endDate, shadowPercentage, cloudPercentage, usuario_id } = req.body;
+  async  criarImagemSatelite(req: Request, res: Response) {
+    const { 
+        coordenada_norte, 
+        coordenada_sul, 
+        coordenada_leste, 
+        coordenada_oeste, 
+        data_imagem, 
+        status, 
+        startDate, 
+        endDate, 
+        shadowPercentage, 
+        cloudPercentage, 
+        usuario_id 
+    } = req.body;
 
     if (
         coordenada_norte === undefined ||
@@ -22,61 +37,67 @@ export class ImagemSateliteController {
         shadowPercentage === undefined ||
         cloudPercentage === undefined
     ) {
-        return res.status(400).json({ error: 'Coordenadas (norte, sul, leste, oeste), data_imagem e status são obrigatórios' });
+        return res.status(400).json({ error: 'Coordenadas e outros parâmetros obrigatórios estão ausentes' });
     }
 
     try {
         const dataImagem = new Date(data_imagem);
-        const startDateObj = new Date(startDate);  // Convertendo startDate para objeto Date
-        const endDateObj = new Date(endDate); 
-        const imagemSatelite = await imagemSateliteService.criarImagemSatelite(
+        const startDateObj = new Date(startDate);
+        const endDateObj = new Date(endDate);
+
+        const imagemSateliteBase = {
             coordenada_norte,
             coordenada_sul,
             coordenada_leste,
             coordenada_oeste,
-            dataImagem,
+            data_imagem: dataImagem,
             status,
-            startDateObj,
-            endDateObj,
+            startDate: startDateObj,
+            endDate: endDateObj,
             shadowPercentage,
             cloudPercentage,
-            usuario_id
-        );
+            ...(usuario_id && { usuario_id }),
+        };
 
-        // Executar o script Python após criar a imagem de satélite
-        console.log('Imagem de satélite criada com sucesso.');
-        console.log('Preparando para executar o script Python...');
-
-        // Formatar datas
-        const startDateFormatted = startDate.split('T')[0]; // Remove a parte da hora
-        const endDateFormatted = endDate.split('T')[0]; // Remove a parte da hora
-
-        // Caminhos do Python e do script
         const pythonExecutable = path.join(__dirname, '../../scripts/venv/Scripts/python.exe');
         const scriptPath = path.join(__dirname, '../../scripts/novaApi.py');
+        const command = `${pythonExecutable} ${scriptPath} ${coordenada_oeste} ${coordenada_sul} ${coordenada_leste} ${coordenada_norte} ${startDate.split('T')[0]} ${endDate.split('T')[0]}`;
 
-        // Comando atualizado
-        const command = `${pythonExecutable} ${scriptPath} ${coordenada_oeste} ${coordenada_sul} ${coordenada_leste} ${coordenada_norte} ${startDateFormatted} ${endDateFormatted}`;
-
-        console.log(`Comando para execução: ${command}`);
-
-        exec(command, (error, stdout, stderr) => {
+        exec(command, async (error, stdout, stderr) => {
             if (error) {
                 console.error(`Erro ao executar o script Python: ${error.message}`);
                 console.error(`Detalhes do erro: ${stderr}`);
                 return res.status(500).json({ error: 'Erro ao buscar imagens' });
             }
             console.log('Script Python executado com sucesso.');
-            console.log(`Saída do script: ${stdout}`);
-            
-            // Enviar a resposta ao cliente aqui, após a execução do script Python
-            res.status(201).json(imagemSatelite);
+
+            const linhas = stdout.trim().split('\n');
+            const nomesArquivos = linhas.filter(linha => linha.includes('.tif')).map(linha => linha.trim());
+            console.log(`Nomes de arquivos gerados: ${nomesArquivos}`);
+
+            try {
+                const imagensSalvas = await Promise.all(
+                    nomesArquivos.map(nome => 
+                        prisma.imagemSatelite.create({
+                            data: {
+                                ...imagemSateliteBase,
+                                nome
+                            }
+                        })
+                    )
+                );
+
+                res.status(201).json({ message: "Imagens de satélite salvas com sucesso", imagens: imagensSalvas });
+            } catch (dbError) {
+                console.error('Erro ao salvar nomes das imagens:', dbError);
+                res.status(500).json({ error: 'Erro ao salvar nomes das imagens no banco de dados' });
+            }
         });
     } catch (error) {
         console.error('Erro durante a criação da imagem de satélite:', error);
         res.status(400).json({ error: 'Erro ao criar a imagem de satélite', details: error });
     }
-  }
+}
 
   async listarImagensSatelite(req: Request, res: Response) {
     try {
@@ -89,7 +110,7 @@ export class ImagemSateliteController {
 
   async obterImagemSatelitePorId(req: Request, res: Response) {
     const { id } = req.params;
-    
+
     try {
       const imagemSatelite = await imagemSateliteService.obterImagemSatelitePorId(Number(id));
       if (imagemSatelite) {
@@ -143,24 +164,24 @@ export class ImagemSateliteController {
     const imagensDir = path.join(__dirname, '../../imagens_tratadas_ia'); // Ajuste o caminho conforme necessário
 
     fs.readdir(imagensDir, (err, files) => {
-        if (err) {
-            return res.status(500).json({ error: 'Erro ao listar as imagens' });
-        }
+      if (err) {
+        return res.status(500).json({ error: 'Erro ao listar as imagens' });
+      }
 
-        // Verifica o host da requisição para diferenciar mobile e web
-        const host = req.headers.host;
-        const baseURL = host?.includes('10.0.2.2') 
-            ? 'http://10.0.2.2:3002/imagens_tratadas_ia/' 
-            : 'http://localhost:3002/imagens_tratadas_ia/'; 
+      // Verifica o host da requisição para diferenciar mobile e web
+      const host = req.headers.host;
+      const baseURL = host?.includes('10.0.2.2')
+        ? 'http://10.0.2.2:3002/imagens_tratadas_ia/'
+        : 'http://localhost:3002/imagens_tratadas_ia/';
 
-        const imagensTratadas = files
-            .filter(file => file.endsWith('.png')) // Filtra apenas arquivos .png
-            .map(file => ({
-                name: file,
-                url: `${baseURL}${file}`,  // Usa a baseURL apropriada
-            }));
+      const imagensTratadas = files
+        .filter(file => file.endsWith('.png')) // Filtra apenas arquivos .png
+        .map(file => ({
+          name: file,
+          url: `${baseURL}${file}`,  // Usa a baseURL apropriada
+        }));
 
-        res.status(200).json(imagensTratadas);
+      res.status(200).json(imagensTratadas);
     });
   }
 
