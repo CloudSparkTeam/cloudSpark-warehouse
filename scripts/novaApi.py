@@ -48,10 +48,12 @@ print(f"Pasta de saída: {outdir}")
 # Usar uma sessão do requests para melhorar a performance
 session = requests.Session()
 
+# Lista para armazenar os nomes dos arquivos gerados
+nomes_arquivos = []
+
 # Função para baixar as imagens dos ativos
 def download_assets(item, outdir):
     """Baixa os ativos TIFF de um item de uma coleção STAC e converte PNG para TIFF se necessário"""
-    print(f"Baixando ativos do item: {item.id}")
     for band, asset in item.assets.items():
         asset_url = asset.href
         file_extension = asset_url.split('.')[-1]  # Extrai a extensão do arquivo
@@ -59,7 +61,6 @@ def download_assets(item, outdir):
         try:
             if file_extension == 'tif':
                 local_path = os.path.join(outdir, f"{item.id}_{band}.tif")
-                print(f"Baixando TIFF: {band} de {asset_url}")
                 
                 # Baixar o arquivo TIFF
                 r = session.get(asset_url)
@@ -67,20 +68,17 @@ def download_assets(item, outdir):
                 
                 with open(local_path, 'wb') as f:
                     f.write(r.content)
-                print(f"Download concluído: {local_path}")
+                nomes_arquivos.append(f"{item.id}_{band}.tif")
 
             elif file_extension == 'png':
-                print(f"Processando PNG: {band} de {asset_url}")
-                
-                # Baixar o arquivo PNG
+                # Baixar o arquivo PNG e converter para TIFF
                 r = session.get(asset_url)
                 r.raise_for_status()
                 
-                # Converter o PNG para TIFF diretamente da memória
                 with Image.open(io.BytesIO(r.content)) as img:
                     tiff_path = os.path.join(outdir, f"{item.id}_{band}.tif")
                     img.save(tiff_path, format='TIFF')
-                    print(f"Conversão concluída: {tiff_path}")
+                    nomes_arquivos.append(f"{item.id}_{band}.tif")
 
         except Exception as e:
             print(f"Erro ao processar {band}: {e}")
@@ -89,9 +87,6 @@ def download_assets(item, outdir):
 for produto in produtos:
     download_assets(produto, outdir)
 
-print("Processo concluído.")
-
-# Agora vamos imprimir os nomes dos arquivos gerados
-for item in produtos:
-    for band in item.assets.keys():
-        print(f"{item.id}_{band}.tif")  # Imprime o nome do arquivo
+# Imprimir apenas os nomes dos arquivos gerados, sem mensagens adicionais
+for nome in nomes_arquivos:
+    print(nome)
