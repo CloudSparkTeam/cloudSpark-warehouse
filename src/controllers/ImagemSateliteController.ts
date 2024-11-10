@@ -9,6 +9,8 @@ const prisma = new PrismaClient();
 
 const imagemSateliteService = new ImagemSateliteService();
 
+const sharp = require('sharp');
+
 export class ImagemSateliteController {
   async  criarImagemSatelite(req: Request, res: Response) {
     const { 
@@ -63,6 +65,7 @@ export class ImagemSateliteController {
         const scriptPath = path.join(__dirname, '../../scripts/novaApi.py');
         const command = `${pythonExecutable} ${scriptPath} ${coordenada_oeste} ${coordenada_sul} ${coordenada_leste} ${coordenada_norte} ${startDate.split('T')[0]} ${endDate.split('T')[0]}`;
 
+        console.log(command)
         exec(command, async (error, stdout, stderr) => {
             if (error) {
                 console.error(`Erro ao executar o script Python: ${error.message}`);
@@ -123,6 +126,21 @@ export class ImagemSateliteController {
     }
   }
 
+  async obterImagemSatelitePorUsuario(req: Request, res: Response) {
+    const { usuario_id } = req.params;
+
+    try {
+      const imagemSatelite = await imagemSateliteService.obterImagemSatelitePorUsuario(Number(usuario_id));
+      if (imagemSatelite) {
+        res.status(200).json(imagemSatelite);
+      } else {
+        res.status(404).json({ error: 'Imagem de satélite não encontrada' });
+      }
+    } catch (error) {
+      res.status(400).json({ error: 'Erro ao obter a imagem de satélite' });
+    }
+  }
+
   async atualizarImagemSatelite(req: Request, res: Response) {
     const { id } = req.params;
     const { longitude, latitude, data_imagem, status, usuario_id } = req.body;
@@ -161,29 +179,148 @@ export class ImagemSateliteController {
   }
 
   async listarImagensTratadas(req: Request, res: Response) {
-    const imagensDir = path.join(__dirname, '../../imagens_tratadas_ia'); // Ajuste o caminho conforme necessário
-
+    const { usuario_id } = req.params;
+  
+    // Obter as imagens tratadas para o usuário
+    const imagens = await imagemSateliteService.listarImagensTratadasPorUsuario(Number(usuario_id));
+    console.log(imagens);
+  
+    const imagensDir = path.join(__dirname, '../../imagens_tratadas_ia'); // Caminho para o diretório das imagens tratadas
+  
+    // Substituir a extensão .tif por .png para todas as imagens
+    const imagensComNovoFormato = imagens
+      .filter((imagem): imagem is string => imagem != null)  // Filtra qualquer valor null ou undefined e assegura que 'imagem' é uma string
+      .map(imagem => {
+        // Verifica se a imagem tem a extensão '.tif' antes de substituir
+        if (imagem.endsWith('.tif')) {
+          return imagem.replace('.tif', '.png'); // Substitui .tif por .png
+        }
+        return imagem; // Se não for '.tif', retorna a imagem como está
+      });
+  
+    console.log(imagensComNovoFormato);
+  
+    // Ler o diretório de imagens
     fs.readdir(imagensDir, (err, files) => {
       if (err) {
         return res.status(500).json({ error: 'Erro ao listar as imagens' });
       }
-
-      // Verifica o host da requisição para diferenciar mobile e web
+  
+      // Verifica o host da requisição para diferenciar entre mobile e web
       const host = req.headers.host;
       const baseURL = host?.includes('10.0.2.2')
         ? 'http://10.0.2.2:3002/imagens_tratadas_ia/'
         : 'http://localhost:3002/imagens_tratadas_ia/';
-
+  
+      // Filtra os arquivos para pegar apenas as imagens que estão na lista com a nova extensão
       const imagensTratadas = files
-        .filter(file => file.endsWith('.png')) // Filtra apenas arquivos .png
+        .filter(file => imagensComNovoFormato.includes(file))  // Filtra os arquivos que estão no array de imagensComNovoFormato
         .map(file => ({
           name: file,
-          url: `${baseURL}${file}`,  // Usa a baseURL apropriada
+          url: `${baseURL}${file}`,  // Gera a URL para a imagem
         }));
-
+  
+      // Retorna a lista de imagens tratadas com as URLs
       res.status(200).json(imagensTratadas);
     });
   }
+  
+
+async recriarImagemSatelite(req: Request, res: Response) {
+  const { 
+      coordenada_norte, 
+      coordenada_sul, 
+      coordenada_leste, 
+      coordenada_oeste, 
+      startDate, 
+      endDate 
+  } = req.body;
+
+  // Verifique se os parâmetros obrigatórios estão presentes
+  if (!coordenada_norte || !coordenada_sul || !coordenada_leste || !coordenada_oeste || !startDate || !endDate) {
+      return res.status(400).json({ error: 'Parâmetros obrigatórios estão ausentes' });
+  }
+
+  try {
+      // Defina o caminho do executável Python e do script
+      const pythonExecutable = path.join(__dirname, '../../scripts/venv/Scripts/python.exe');
+      const scriptPath = path.join(__dirname, '../../scripts/novaApi.py');
+
+      // Construa o comando para chamar o script Python com os parâmetros necessários
+      const command = `${pythonExecutable} ${scriptPath} ${coordenada_oeste} ${coordenada_sul} ${coordenada_leste} ${coordenada_norte} ${startDate.split('T')[0]} ${endDate.split('T')[0]}`;
+      console.log(`Comando executado: ${command}`);
+
+      // Execute o comando
+      exec(command, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`Erro ao executar o script Python: ${error.message}`);
+            console.error(`Detalhes do erro: ${stderr}`);
+            return res.status(500).json({ error: 'Erro ao buscar imagens' });
+        }
+    
+        console.log('Script Python executado com sucesso.');
+        console.log('stdout:', stdout);  // Imprima a saída padrão
+        console.log('stderr:', stderr);  // Imprima qualquer erro padrão
+    
+        const linhas = stdout.trim().split('\n');
+        const nomesArquivos = linhas.filter(linha => linha.includes('.tif')).map(linha => linha.trim());
+        console.log(`Nomes de arquivos gerados: ${nomesArquivos}`);
+    
+        res.status(201).json({ message: "Imagens geradas novamente", arquivos: nomesArquivos });
+    });
+    
+  } catch (error) {
+      console.error('Erro durante a criação da imagem de satélite:', error);
+      res.status(400).json({ error: 'Erro ao criar a imagem de satélite', details: error });
+  }
+}
+
+async listareTratarImagensTratadas(req: Request, res: Response) {
+  const { usuario_id } = req.params;
+
+  try {
+      const imagens = await imagemSateliteService.listarImagensTratadasPorUsuario(Number(usuario_id));
+      console.log(imagens)
+      const imagensDir = path.join(__dirname, '../../imagens_tratadas_ia');
+      
+      const host = req.headers.host;
+      const baseURL = host?.includes('10.0.2.2')
+          ? 'http://10.0.2.2:3002/imagens_tratadas_ia/'
+          : 'http://localhost:3002/imagens_tratadas_ia/';
+      
+      const imagensTratadas = await Promise.all(imagens
+          .filter(file => file && file.endsWith('.tif')) // Verifica se 'file' não é null antes de usar .endsWith
+          .map(async file => {
+              if (!file) return null; // Adiciona uma verificação extra para garantir que 'file' não seja null
+              
+              const inputPath = path.join(imagensDir, file);
+              const outputPath = inputPath.replace('.tif', '.png');
+
+              // Verifica se o diretório de saída existe, se não, cria
+              const outputDir = path.dirname(outputPath);
+              if (!fs.existsSync(outputDir)) {
+                  fs.mkdirSync(outputDir, { recursive: true });
+              }
+      
+              // Realiza a conversão da imagem
+              await sharp(inputPath)
+                  .toFormat('png')
+                  .toFile(outputPath);
+
+              return {
+                  name: file.replace('.tif', '.png'),
+                  url: `${baseURL}${file.replace('.tif', '.png')}`,
+              };
+          })
+      );
+      
+      // Filtra resultados para remover qualquer possível valor null
+      res.status(200).json(imagensTratadas.filter(Boolean));
+      
+  } catch (error) {
+      res.status(500).json({ error: 'Erro ao listar as imagens' });
+  }
+}
 
 }
 
