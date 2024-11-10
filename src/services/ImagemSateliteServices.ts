@@ -136,6 +136,12 @@ export class ImagemSateliteService {
     });
   }
 
+  async obterImagemSatelitePorUsuario(usuario_id: number) {
+    return await prisma.imagemSatelite.findMany({
+      where: { usuario_id }
+    });
+  }
+
   async atualizarImagemSatelite(
     id: number,
     data: Partial<{
@@ -157,4 +163,15 @@ export class ImagemSateliteService {
       where: { id },
     });
   }
+
+  async listarImagensTratadasPorUsuario(usuario_id: number) {
+    // Busca as imagens de satélite do usuário no banco
+    const imagens = await prisma.imagemSatelite.findMany({
+        where: { usuario_id },
+        select: { nome: true }  // Aqui estamos assumindo que "nome" é o nome do arquivo
+    });
+
+    return imagens.map(imagem => imagem.nome);
+}
+
 }

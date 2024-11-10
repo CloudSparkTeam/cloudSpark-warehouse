@@ -5,8 +5,7 @@ from datetime import date
 import rasterio
 import numpy as np
 import matplotlib.pyplot as plt
-import requests
-from PIL import Image  # Importando a biblioteca Pillow
+from PIL import Image
 
 Image.MAX_IMAGE_PIXELS = None  # Remove o limite de pixels
 
@@ -49,15 +48,10 @@ bands = ['red', 'green', 'blue', 'nir']
 # Diretório de saída como o diretório atual
 outdir = os.getcwd()
 
-# Diretório para salvar os arquivos PNG
+# Diretório para salvar os arquivos TIFF combinados
 output_dir = os.path.join(outdir, 'imagens_tratadas')
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
-
-# Diretório para salvar as imagens tratadas pela IA
-ia_output_dir = os.path.join(outdir, 'imagens_tratadas_ia')
-if not os.path.exists(ia_output_dir):
-    os.makedirs(ia_output_dir)
 
 # Baixando os produtos
 try:
@@ -71,12 +65,6 @@ except Exception as e:
     print(f"Erro ao baixar produtos: {e}")
     sys.exit(1)
 
-def adjust_gamma(image, gamma=1.0):
-    """Aplica correção de gamma à imagem."""
-    invGamma = 1.0 / gamma
-    table = np.array([((i / 255.0) ** invGamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
-    return cv2.LUT(image, table)
-
 # Função para aplicar histogram stretching
 def stretch_image(image, lower_percent=1, upper_percent=99):
     """Aplica stretching no histograma para melhorar o contraste."""
@@ -87,35 +75,6 @@ def stretch_image(image, lower_percent=1, upper_percent=99):
         upper = np.percentile(band, upper_percent)
         out[:, :, i] = np.clip((band - lower) / (upper - lower), 0, 1)
     return out
-
-# Função para enviar a imagem para o endpoint e salvar a resposta
-def enviar_para_ia_e_salvar(output_png_path, ia_output_dir):
-    with open(output_png_path, 'rb') as f:
-        # Criando o payload de arquivo
-        file_name = os.path.basename(output_png_path)  # Pegando o nome do arquivo
-        files = {'files': (file_name, f, 'image/png')}  # Alterando 'file' para 'files'
-        headers = {
-            'accept': 'application/json'
-        }
-
-        try:
-            # Fazendo a requisição para o endpoint
-            response = requests.post('http://50.17.138.118:8000/predict', files=files, headers=headers)
-            response.raise_for_status()
-
-            # Salvando a imagem retornada
-            treated_image_path = os.path.join(ia_output_dir, f'imagem_tratada_ia_{file_name}')
-            with open(treated_image_path, 'wb') as f_out:
-                f_out.write(response.content)
-
-            print(f"Imagem tratada salva como {treated_image_path}")
-
-        except requests.exceptions.RequestException as e:
-            if e.response is not None:
-                print(f"Erro ao enviar ou receber a imagem tratada: {e}")
-                print(f"Resposta do servidor: {e.response.text}")
-            else:
-                print(f"Erro de conexão: {e}")
 
 # Verificando o conteúdo do diretório de download para encontrar as subpastas
 for subdir in os.listdir(outdir):
@@ -158,18 +117,18 @@ for subdir in os.listdir(outdir):
         stretched_image = stretch_image(rgb_image)
 
         # Nome de saída baseado na pasta
-        output_png_path = os.path.join(output_dir, f'{subdir}_imagem_empilhada.png')
+        output_tif_path = os.path.join(output_dir, f'{subdir}_imagem_empilhada_combinada.tif')
 
-        # Salvando a imagem com stretching aplicado
-        plt.imsave(output_png_path, stretched_image)
+        # Salvando a imagem empilhada combinada como um único arquivo TIFF
+        with rasterio.open(
+            output_tif_path, 'w',
+            driver='GTiff',
+            height=stretched_image.shape[0],
+            width=stretched_image.shape[1],
+            count=stretched_image.shape[2],
+            dtype=stretched_image.dtype
+        ) as dst:
+            for i in range(stretched_image.shape[2]):
+                dst.write(stretched_image[:, :, i], i + 1)
 
-        print(f"Imagem empilhada salva como {output_png_path}")
-
-        # Redimensionando e convertendo a imagem para PNG
-        with Image.open(output_png_path) as img:
-            img = img.resize((800, 600), Image.ANTIALIAS)  # Ajuste o tamanho conforme necessário
-            img = img.convert("RGB")  # Garantindo que a imagem esteja no formato RGB
-            img.save(output_png_path, format='PNG')  # Salvando no formato PNG
-
-        # Enviar a imagem para o endpoint e salvar a resposta
-        enviar_para_ia_e_salvar(output_png_path, ia_output_dir)
+        print(f"Imagem empilhada combinada salva como {output_tif_path}")
