@@ -226,55 +226,108 @@ export class ImagemSateliteController {
   }
   
 
-async recriarImagemSatelite(req: Request, res: Response) {
-  const { 
-      coordenada_norte, 
-      coordenada_sul, 
-      coordenada_leste, 
-      coordenada_oeste, 
-      startDate, 
-      endDate 
-  } = req.body;
-
-  // Verifique se os parâmetros obrigatórios estão presentes
-  if (!coordenada_norte || !coordenada_sul || !coordenada_leste || !coordenada_oeste || !startDate || !endDate) {
-      return res.status(400).json({ error: 'Parâmetros obrigatórios estão ausentes' });
-  }
-
-  try {
-      // Defina o caminho do executável Python e do script
-      const pythonExecutable = path.join(__dirname, '../../scripts/venv/Scripts/python.exe');
-      const scriptPath = path.join(__dirname, '../../scripts/novaApi.py');
-
-      // Construa o comando para chamar o script Python com os parâmetros necessários
-      const command = `${pythonExecutable} ${scriptPath} ${coordenada_oeste} ${coordenada_sul} ${coordenada_leste} ${coordenada_norte} ${startDate.split('T')[0]} ${endDate.split('T')[0]}`;
-      console.log(`Comando executado: ${command}`);
-
-      // Execute o comando
-      exec(command, (error, stdout, stderr) => {
-        if (error) {
-            console.error(`Erro ao executar o script Python: ${error.message}`);
-            console.error(`Detalhes do erro: ${stderr}`);
-            return res.status(500).json({ error: 'Erro ao buscar imagens' });
+  async recriarImagemSatelite(req: Request, res: Response) {
+    const { 
+        coordenada_norte, 
+        coordenada_sul, 
+        coordenada_leste, 
+        coordenada_oeste, 
+        startDate, 
+        endDate, 
+        shadowPercentage, 
+        cloudPercentage 
+    } = req.body;
+  
+    if (
+      !coordenada_norte || !coordenada_sul || !coordenada_leste || !coordenada_oeste ||
+      !startDate || !endDate || shadowPercentage === undefined || cloudPercentage === undefined
+    ) {
+        return res.status(400).json({ error: 'Parâmetros obrigatórios estão ausentes' });
+    }
+  
+    try {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+  
+        const registrosExistentes = await prisma.imagemSatelite.findMany({
+            where: {
+                coordenada_norte,
+                coordenada_sul,
+                coordenada_leste,
+                coordenada_oeste,
+                startDate: start,
+                endDate: end,
+                shadowPercentage,
+                cloudPercentage,
+            },
+            select: {
+                nome: true,
+            },
+        });
+  
+        const imagensPath = path.join(__dirname, '../../imagens_tratadas_ia');
+        const host = req.headers.host;
+        const baseURL = host?.includes('10.0.2.2')
+            ? 'http://10.0.2.2:3002/imagens_tratadas_ia/'
+            : 'http://localhost:3002/imagens_tratadas_ia/';
+  
+        if (registrosExistentes.length > 0) {
+            const nomes = registrosExistentes
+                .map((registro) => registro.nome)
+                .filter((nome): nome is string => !!nome) // Filtra nomes válidos
+                .map((nome) => nome.replace('.tif', '.png'));
+  
+            const arquivosNaPasta = fs.readdirSync(imagensPath);
+            const imagensEncontradas = nomes
+                .filter((nome) => arquivosNaPasta.includes(nome))
+                .map((nome) => ({
+                    name: nome,
+                    url: `${baseURL}${nome}`,
+                }));
+  
+            console.log('Imagens encontradas:', imagensEncontradas);
+            return res.status(200).json({ message: 'Imagens já geradas anteriormente', arquivos: imagensEncontradas });
         }
-    
-        console.log('Script Python executado com sucesso.');
-        console.log('stdout:', stdout);  // Imprima a saída padrão
-        console.log('stderr:', stderr);  // Imprima qualquer erro padrão
-    
-        const linhas = stdout.trim().split('\n');
-        const nomesArquivos = linhas.filter(linha => linha.includes('.tif')).map(linha => linha.trim());
-        console.log(`Nomes de arquivos gerados: ${nomesArquivos}`);
-    
-        res.status(201).json({ message: "Imagens geradas novamente", arquivos: nomesArquivos });
-    });
-    
-  } catch (error) {
-      console.error('Erro durante a criação da imagem de satélite:', error);
-      res.status(400).json({ error: 'Erro ao criar a imagem de satélite', details: error });
+  
+        const pythonExecutable = path.join(__dirname, '../../scripts/venv/Scripts/python.exe');
+        const scriptPath = path.join(__dirname, '../../scripts/novaApi.py');
+  
+        const command = `${pythonExecutable} ${scriptPath} ${coordenada_oeste} ${coordenada_sul} ${coordenada_leste} ${coordenada_norte} ${startDate.split('T')[0]} ${endDate.split('T')[0]}`;
+        console.log(`Comando executado: ${command}`);
+  
+        exec(command, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`Erro ao executar o script Python: ${error.message}`);
+                console.error(`Detalhes do erro: ${stderr}`);
+                return res.status(500).json({ error: 'Erro ao buscar imagens' });
+            }
+  
+            console.log('Script Python executado com sucesso.');
+            console.log('stdout:', stdout);
+  
+            const linhas = stdout.trim().split('\n');
+            const nomesArquivos = linhas
+                .filter((linha) => linha.includes('.tif'))
+                .map((linha) => linha.trim().replace('.tif', '.png'));
+  
+            const arquivosNaPasta = fs.readdirSync(imagensPath);
+            const imagensEncontradas = nomesArquivos
+                .filter((nome) => arquivosNaPasta.includes(nome))
+                .map((nome) => ({
+                    name: nome,
+                    url: `${baseURL}${nome}`,
+                }));
+  
+            console.log(`Imagens geradas e encontradas: ${imagensEncontradas}`);
+            res.status(201).json({ message: 'Imagens geradas novamente', arquivos: imagensEncontradas });
+        });
+  
+    } catch (error) {
+        console.error('Erro durante a criação da imagem de satélite:', error);
+        res.status(500).json({ error: 'Erro ao criar a imagem de satélite'});
+    }
   }
-}
-
+  
 async listareTratarImagensTratadas(req: Request, res: Response) {
   const { usuario_id } = req.params;
 
