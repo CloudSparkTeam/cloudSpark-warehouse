@@ -44,7 +44,7 @@ if produtos is None:
 
 # Definindo as bandas que você deseja baixar
 bands = ['red', 'green', 'blue', 'nir']
-
+ 
 # Diretório de saída como o diretório atual
 outdir = os.getcwd()
 
