@@ -137,10 +137,34 @@ export class ImagemSateliteService {
   }
 
   async obterImagemSatelitePorUsuario(usuario_id: number) {
-    return await prisma.imagemSatelite.findMany({
-      where: { usuario_id }
+    const resultado = await prisma.imagemSatelite.groupBy({
+        by: [
+            'data_imagem',
+            'coordenada_norte',
+            'coordenada_sul',
+            'coordenada_leste',
+            'coordenada_oeste',
+            'startDate',
+            'endDate',
+            'cloudPercentage',
+            'shadowPercentage'
+        ],
+        where: {
+            usuario_id
+        },
+        _min: {
+            id: true,
+            status: true
+        }
     });
-  }
+
+    return resultado.map(item => ({
+        ...item,
+        id: item._min.id,
+        status: item._min.status,
+        _min: undefined 
+    }));
+}
 
   async atualizarImagemSatelite(
     id: number,
