@@ -31,6 +31,7 @@
     "jsonwebtoken": "^9.0.2",
     "nodemon": "^3.1.4",
     "pg": "^8.12.0",
+    "react-router-dom": "^7.0.1",
     "sha512-crypt-ts": "^0.1.27",
     "sharp": "^0.33.5",
     "typescript": "^5.5.4"

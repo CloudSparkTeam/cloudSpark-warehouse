@@ -270,21 +270,26 @@ export class ImagemSateliteController {
         const baseURL = host?.includes('10.0.2.2')
             ? 'http://10.0.2.2:3002/imagens_tratadas_ia/'
             : 'http://localhost:3002/imagens_tratadas_ia/';
-  
+
         if (registrosExistentes.length > 0) {
-            const nomes = registrosExistentes
+            // Remover qualquer sufixo extra como '_original_thumbnail'
+            const nomesBase = registrosExistentes
                 .map((registro) => registro.nome)
-                .filter((nome): nome is string => !!nome) // Filtra nomes válidos
-                .map((nome) => nome.replace('.tif', '.png'));
-  
+                .filter((nome): nome is string => !!nome)
+                .map((nome) => nome.split('_original_thumbnail')[0]); // Remove '_original_thumbnail' se presente
+
             const arquivosNaPasta = fs.readdirSync(imagensPath);
-            const imagensEncontradas = nomes
-                .filter((nome) => arquivosNaPasta.includes(nome))
-                .map((nome) => ({
-                    name: nome,
-                    url: `${baseURL}${nome}`,
+            // Encontrar imagens .png que possuem o mesmo nome base (sem extensão e sem sufixo '_original_thumbnail')
+            const imagensEncontradas = arquivosNaPasta
+                .filter((arquivo) => {
+                    // Verifica se o nome do arquivo começa com algum dos nomes base encontrados e se a extensão é .png
+                    return nomesBase.some((nomeBase) => arquivo.startsWith(nomeBase)) && arquivo.endsWith('.png');
+                })
+                .map((arquivo) => ({
+                    name: arquivo,
+                    url: `${baseURL}${arquivo}`,
                 }));
-  
+
             console.log('Imagens encontradas:', imagensEncontradas);
             return res.status(200).json({ message: 'Imagens já geradas anteriormente', arquivos: imagensEncontradas });
         }
@@ -308,14 +313,16 @@ export class ImagemSateliteController {
             const linhas = stdout.trim().split('\n');
             const nomesArquivos = linhas
                 .filter((linha) => linha.includes('.tif'))
-                .map((linha) => linha.trim().replace('.tif', '.png'));
-  
+                .map((linha) => linha.trim().replace('.tif', '.png')); // Apenas troca para .png
+          
             const arquivosNaPasta = fs.readdirSync(imagensPath);
-            const imagensEncontradas = nomesArquivos
-                .filter((nome) => arquivosNaPasta.includes(nome))
-                .map((nome) => ({
-                    name: nome,
-                    url: `${baseURL}${nome}`,
+            const imagensEncontradas = arquivosNaPasta
+                .filter((arquivo) => {
+                    return nomesArquivos.some((nomeBase) => arquivo.startsWith(nomeBase)) && arquivo.endsWith('.png'); // Verifica o nome base e a extensão .png
+                })
+                .map((arquivo) => ({
+                    name: arquivo,
+                    url: `${baseURL}${arquivo}`,
                 }));
   
             console.log(`Imagens geradas e encontradas: ${imagensEncontradas}`);
@@ -326,14 +333,64 @@ export class ImagemSateliteController {
         console.error('Erro durante a criação da imagem de satélite:', error);
         res.status(500).json({ error: 'Erro ao criar a imagem de satélite'});
     }
-  }
+}
+
   
+// async listareTratarImagensTratadas(req: Request, res: Response) {
+//   const { usuario_id } = req.params;
+
+//   try {
+//       const imagens = await imagemSateliteService.listarImagensTratadasPorUsuario(Number(usuario_id));
+//       console.log(imagens)
+//       const imagensDir = path.join(__dirname, '../../imagens_tratadas_ia');
+      
+//       const host = req.headers.host;
+//       const baseURL = host?.includes('10.0.2.2')
+//           ? 'http://10.0.2.2:3002/imagens_tratadas_ia/'
+//           : 'http://localhost:3002/imagens_tratadas_ia/';
+      
+//       const imagensTratadas = await Promise.all(imagens
+//           .filter(file => file && file.endsWith('.tif')) // Verifica se 'file' não é null antes de usar .endsWith
+//           .map(async file => {
+//               if (!file) return null; // Adiciona uma verificação extra para garantir que 'file' não seja null
+              
+//               const inputPath = path.join(imagensDir, file);
+//               const outputPath = inputPath.replace('.tif', '.png');
+
+//               // Verifica se o diretório de saída existe, se não, cria
+//               const outputDir = path.dirname(outputPath);
+//               if (!fs.existsSync(outputDir)) {
+//                   fs.mkdirSync(outputDir, { recursive: true });
+//               }
+      
+//               // Realiza a conversão da imagem
+//               await sharp(inputPath)
+//                   .toFormat('png')
+//                   .toFile(outputPath);
+
+//               return {
+//                   name: file.replace('.tif', '.png'),
+//                   url: `${baseURL}${file.replace('.tif', '.png')}`,
+//               };
+//           })
+//       );
+      
+//       // Filtra resultados para remover qualquer possível valor null
+//       res.status(200).json(imagensTratadas.filter(Boolean));
+      
+//   } catch (error) {
+//       res.status(500).json({ error: 'Erro ao listar as imagens' });
+//   }
+// }
+
 async listareTratarImagensTratadas(req: Request, res: Response) {
   const { usuario_id } = req.params;
 
   try {
+      // Lista todas as imagens do usuário
       const imagens = await imagemSateliteService.listarImagensTratadasPorUsuario(Number(usuario_id));
-      console.log(imagens)
+      console.log(imagens);
+      
       const imagensDir = path.join(__dirname, '../../imagens_tratadas_ia');
       
       const host = req.headers.host;
@@ -342,34 +399,36 @@ async listareTratarImagensTratadas(req: Request, res: Response) {
           : 'http://localhost:3002/imagens_tratadas_ia/';
       
       const imagensTratadas = await Promise.all(imagens
-          .filter(file => file && file.endsWith('.tif')) // Verifica se 'file' não é null antes de usar .endsWith
+          .filter(file => file) // Filtra para garantir que 'file' não é nulo ou indefinido
           .map(async file => {
-              if (!file) return null; // Adiciona uma verificação extra para garantir que 'file' não seja null
-              
+              if (!file) return null; // Verificação extra para garantir que 'file' não seja nulo
+
+              const prefix = file.replace('original_thumbnail.tif', ''); // Remove o sufixo "original_thumbnail.tif"
               const inputPath = path.join(imagensDir, file);
-              const outputPath = inputPath.replace('.tif', '.png');
+              const fileExtension = path.extname(file); // Obtém a extensão do arquivo
 
-              // Verifica se o diretório de saída existe, se não, cria
-              const outputDir = path.dirname(outputPath);
-              if (!fs.existsSync(outputDir)) {
-                  fs.mkdirSync(outputDir, { recursive: true });
-              }
-      
-              // Realiza a conversão da imagem
-              await sharp(inputPath)
-                  .toFormat('png')
-                  .toFile(outputPath);
+              // Encontra todos os arquivos que têm o mesmo prefixo
+              const allFiles = fs.readdirSync(imagensDir);
+              const matchingFiles = allFiles.filter(f => f.startsWith(prefix));
 
-              return {
-                  name: file.replace('.tif', '.png'),
-                  url: `${baseURL}${file.replace('.tif', '.png')}`,
-              };
+              // Se não houver arquivos correspondentes, retorna null
+              if (!matchingFiles.length) return null;
+
+              // Monta a URL para todos os arquivos correspondentes
+              return matchingFiles.map(f => {
+                  const filePath = path.join(imagensDir, f);
+                  return {
+                      name: f,
+                      url: `${baseURL}${f}`, // URL do arquivo
+                  };
+              });
           })
       );
-      
-      // Filtra resultados para remover qualquer possível valor null
-      res.status(200).json(imagensTratadas.filter(Boolean));
-      
+
+      // Filtra os resultados para remover qualquer valor null e achatar o array de arquivos
+      const result = imagensTratadas.flat().filter(Boolean);
+      res.status(200).json(result);
+
   } catch (error) {
       res.status(500).json({ error: 'Erro ao listar as imagens' });
   }
